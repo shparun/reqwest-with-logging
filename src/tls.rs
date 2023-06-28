@@ -434,6 +434,7 @@ pub(crate) struct NoVerifier;
 #[allow(unused)]
 #[derive(Debug)]
 struct PrettyCertificate {
+    is_ca: bool,
     issuer: String,
     subject: String,
     validity: String,
@@ -468,6 +469,7 @@ fn describe(cert: &rustls::Certificate) -> Result<PrettyCertificate, x509_parser
     let thumbprint_hex = to_hex_string(&thumbprint);
     let (_, cert) = parse_x509_certificate(&cert.0)?;
     Ok(PrettyCertificate {
+        is_ca: cert.is_ca(),
         issuer: cert.tbs_certificate.issuer().to_string(),
         subject: cert.tbs_certificate.subject().to_string(),
         validity: format!(
@@ -492,7 +494,7 @@ impl ServerCertVerifier for NoVerifier {
     ) -> Result<ServerCertVerified, TLSError> {
         let end_entity = describe(end_entity);
         let intermediates = intermediates.into_iter().map(|c| describe(c)).collect::<Vec<_>>();
-        println!("{:?} uses {:#?}, chain: {:#?}", server_name, end_entity, intermediates);
+        log::info!("{:?} uses {:#?}, intermediates: {:#?}", server_name, end_entity, intermediates);
         Ok(ServerCertVerified::assertion())
     }
 

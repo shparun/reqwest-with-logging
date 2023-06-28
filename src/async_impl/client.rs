@@ -277,6 +277,7 @@ impl ClientBuilder {
             }
             let http = HttpConnector::new_with_resolver(DynResolver::new(resolver.clone()));
 
+            log::info!("Using tls config: {:#?}", config.tls);
             #[cfg(feature = "__tls")]
             match config.tls {
                 #[cfg(feature = "default-tls")]
@@ -350,6 +351,7 @@ impl ClientBuilder {
                         config.nodelay,
                     )?
                 }
+
                 #[cfg(feature = "native-tls")]
                 TlsBackend::BuiltNativeTls(conn) => Connector::from_built_default_tls(
                     http,
@@ -396,6 +398,7 @@ impl ClientBuilder {
 
                     #[cfg(feature = "rustls-tls-native-roots")]
                     if config.tls_built_in_root_certs {
+                        log::info!("using certs from rustls_native_certs::load_native_certs");
                         let mut valid_count = 0;
                         let mut invalid_count = 0;
                         for cert in rustls_native_certs::load_native_certs()
