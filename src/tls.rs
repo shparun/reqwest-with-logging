@@ -430,17 +430,69 @@ impl Default for TlsBackend {
 #[cfg(feature = "__rustls")]
 pub(crate) struct NoVerifier;
 
+
+#[allow(unused)]
+#[derive(Debug)]
+struct PrettyCertificate {
+    issuer: String,
+    subject: String,
+    validity: String,
+    thumbprint: String,
+}
+
+#[cfg(feature = "__rustls")]
+fn describe(cert: &rustls::Certificate) -> Result<PrettyCertificate, x509_parser::prelude::X509Error> {
+
+    use rustls::{
+        client::{ServerCertVerified, ServerCertVerifier},
+        ClientConnection,
+    };
+    use sha1::{Digest, Sha1};
+    use x509_parser::prelude::*;
+
+    fn to_hex_string(bytes: &[u8]) -> String {
+        let mut s = String::with_capacity(bytes.len() * 2);
+        write_lower_hex(&mut s, bytes);
+        s
+    }
+
+    fn write_lower_hex(f: &mut impl std::fmt::Write, bytes: &[u8]) {
+        for b in bytes {
+            write!(f, "{:02x}", b).expect("failed to format byte");
+        }
+    }
+
+    let mut hasher = Sha1::new();
+    hasher.update(&cert.0);
+    let thumbprint = hasher.finalize();
+    let thumbprint_hex = to_hex_string(&thumbprint);
+    let (_, cert) = parse_x509_certificate(&cert.0)?;
+    Ok(PrettyCertificate {
+        issuer: cert.tbs_certificate.issuer().to_string(),
+        subject: cert.tbs_certificate.subject().to_string(),
+        validity: format!(
+            "{:?} to {:?}",
+            cert.tbs_certificate.validity().not_before,
+            cert.tbs_certificate.validity().not_after
+        ),
+        thumbprint: thumbprint_hex,
+    })
+}
+
 #[cfg(feature = "__rustls")]
 impl ServerCertVerifier for NoVerifier {
     fn verify_server_cert(
         &self,
-        _end_entity: &rustls::Certificate,
-        _intermediates: &[rustls::Certificate],
-        _server_name: &ServerName,
+        end_entity: &rustls::Certificate,
+        intermediates: &[rustls::Certificate],
+        server_name: &ServerName,
         _scts: &mut dyn Iterator<Item = &[u8]>,
         _ocsp_response: &[u8],
         _now: std::time::SystemTime,
     ) -> Result<ServerCertVerified, TLSError> {
+        let end_entity = describe(end_entity);
+        let intermediates = intermediates.into_iter().map(|c| describe(c)).collect::<Vec<_>>();
+        println!("{:?} uses {:#?}, chain: {:#?}", server_name, end_entity, intermediates);
         Ok(ServerCertVerified::assertion())
     }
 
