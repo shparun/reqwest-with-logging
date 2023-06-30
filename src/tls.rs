@@ -434,6 +434,7 @@ pub(crate) struct NoVerifier;
 #[allow(unused)]
 #[derive(Debug)]
 struct PrettyCertificate {
+    serial: String,
     is_ca: bool,
     issuer: String,
     subject: String,
@@ -469,6 +470,7 @@ fn describe(cert: &rustls::Certificate) -> Result<PrettyCertificate, x509_parser
     let thumbprint_hex = to_hex_string(&thumbprint);
     let (_, cert) = parse_x509_certificate(&cert.0)?;
     Ok(PrettyCertificate {
+        serial: cert.tbs_certificate.raw_serial_as_string(),
         is_ca: cert.is_ca(),
         issuer: cert.tbs_certificate.issuer().to_string(),
         subject: cert.tbs_certificate.subject().to_string(),
